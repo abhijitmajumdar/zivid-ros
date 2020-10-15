@@ -111,6 +111,12 @@ ZividCamera::ZividCamera(ros::NodeHandle& nh, ros::NodeHandle& priv)
   priv_.param<bool>("use_latched_publisher_for_points", use_latched_publisher_for_points_, false);
   priv_.param<bool>("use_latched_publisher_for_color_image", use_latched_publisher_for_color_image_, false);
   priv_.param<bool>("use_latched_publisher_for_depth_image", use_latched_publisher_for_depth_image_, false);
+  priv_.param<bool>("use_2d_capture_for_3d_color_image", use_2d_capture_for_3d_color_image_, false);
+
+  if (use_2d_capture_for_3d_color_image_)
+  {
+    ROS_INFO_STREAM("Configured to use 2D captured color image for 3D frames");
+  }
 
   if (file_camera_mode)
   {
@@ -330,7 +336,17 @@ bool ZividCamera::captureServiceHandler(Capture::Request&, Capture::Response&)
   {
     ROS_DEBUG_STREAM("Setting " << i << ": " << settings[i]);
   }
-  publishFrame(Zivid::HDR::capture(camera_, settings));
+
+  auto frame3d = Zivid::HDR::capture(camera_, settings);
+
+  // If configured to use 2d capture color image while publishing 3d capture, run the 2d capture service to obtain the
+  // image
+  if(shouldPublishColorImg() && use_2d_capture_for_3d_color_image_ && !capture2DImageAndPublish())
+  {
+    ROS_WARN_STREAM("Could not capture 2D RGB image while running 3D capture service");
+  }
+
+  publishFrame(std::move(frame3d));
   return true;
 }
 
@@ -340,6 +356,11 @@ bool ZividCamera::capture2DServiceHandler(Capture::Request&, Capture::Response&)
 
   serviceHandlerHandleCameraConnectionLoss();
 
+  return capture2DImageAndPublish();
+}
+
+bool ZividCamera::capture2DImageAndPublish()
+{
   if (capture_2d_frame_config_dr_servers_.empty())
   {
     throw std::runtime_error("Internal error: capture_2d_frame_config_dr_servers_ empty");
@@ -469,7 +490,7 @@ void ZividCamera::publishFrame(Zivid::Frame&& frame)
     {
       const auto camera_info = makeCameraInfo(header, point_cloud.width(), point_cloud.height(), camera_.intrinsics());
 
-      if (publish_color_img)
+      if (publish_color_img && !use_2d_capture_for_3d_color_image_)
       {
         ROS_DEBUG("Publishing color image");
         color_image_publisher_.publish(makeColorImage(header, point_cloud), camera_info);

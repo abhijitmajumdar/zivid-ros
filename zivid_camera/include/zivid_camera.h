@@ -43,6 +43,7 @@ private:
                                             CameraInfoSerialNumber::Response& res);
   bool captureServiceHandler(Capture::Request& req, Capture::Response& res);
   bool capture2DServiceHandler(Capture::Request& req, Capture::Response& res);
+  bool capture2DImageAndPublish();
   bool captureAssistantSuggestSettingsServiceHandler(CaptureAssistantSuggestSettings::Request& req,
                                                      CaptureAssistantSuggestSettings::Response& res);
   void serviceHandlerHandleCameraConnectionLoss();
@@ -96,6 +97,7 @@ private:
   bool use_latched_publisher_for_points_;
   bool use_latched_publisher_for_color_image_;
   bool use_latched_publisher_for_depth_image_;
+  bool use_2d_capture_for_3d_color_image_;
   ros::Publisher points_publisher_;
   image_transport::ImageTransport image_transport_;
   image_transport::CameraPublisher color_image_publisher_;
